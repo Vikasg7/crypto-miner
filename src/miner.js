@@ -8,8 +8,8 @@ const MAX_NONCE = 2 ** 32
 
 const sha256 = (input) =>
    createHash("sha256")
-      .update(input, "hex")
-      .digest("hex")
+    .update(input, "hex")
+    .digest("hex")
 
 const sha256d = (input) =>
    input
@@ -17,16 +17,17 @@ const sha256d = (input) =>
    |> sha256
 
 const littleEndian = (input) =>
-   input
-   |> splitEvery(2)
-   |> reverse
-   |> join("")
+   Buffer
+    .from(input, "hex")
+    .reverse()
+    .toString("hex")
 
 const bigEndian = littleEndian
 
-const toHex = (input) => Buffer.from(input).toString("hex")
-const toBase64 = (input) => Buffer.from(input).toString("base64")
-const hexToBytes = (input) => Buffer.from(input, "hex")
+const toHex = (string) => Buffer.from(string).toString("hex")
+const toBase64 = (string) => Buffer.from(string).toString("base64")
+const hexToBytes = (hex) => Buffer.from(hex, "hex")
+const bytesToHex = (bytes) => bytes.toString("hex")
 
 // coinbase transaction format - https://bitcoin.stackexchange.com/a/20724
 const coinbaseTx = (cbValue, minerAddress) => {
@@ -105,7 +106,7 @@ const block = (blockTemp, minerAddress) => {
 const scryptHash = (block) => {
    const bytes = hexToBytes(block)
    return scryptSync(bytes, bytes, 32, { N: 1024, r: 1, p: 1 })
-          .toString("hex")
+          |> bytesToHex
           |> bigEndian
 }
 
@@ -159,9 +160,10 @@ const updateBlock = (block) => ([ntime, nonce]) =>
    |> update(3, ntime)
    |> update(5, nonce)
 
-const findValidBlock = (block, target, nTimeNonces) => {
+const findValidBlock = (block, target, nTimeNonces, hashCnt) => {
    const { nTimeNonce, done } = nTimeNonces.next()
-   if (done) return null
+   if (done) return [hashCnt, null]
+   hashCnt++
    const blck = 
       nTimeNonce 
       |> map(toHex)
@@ -171,7 +173,7 @@ const findValidBlock = (block, target, nTimeNonces) => {
       |> join("")
       |> scryptHash
    return hash >= target 
-            ? blck.join("")
+            ? [hashCnt, blck.join("")]
             : findValidBlock(block, target, nTimeNonces)
 }
 
