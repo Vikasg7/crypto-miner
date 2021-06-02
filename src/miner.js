@@ -1,6 +1,6 @@
 const { createHash, scryptSync } = require("crypto")
-const { splitEvery, join, reverse, map, 
-        concat, apply, last, append,
+const { splitEvery, join, compose, map,
+        concat, apply, last, append, 
         head, prop, isEmpty, take, is } = require("ramda")
 const { range, cartesian, update, isOdd } = require("./utils")
 
@@ -26,9 +26,7 @@ const bigEndian = littleEndian
 
 const numToHex = (num) => {
    const x = num.toString(16)
-   return isOdd(x.length)
-            ? "0" + x
-            : x
+   return isOdd(x.length) ? ("0" + x) : x
 }
 
 const strToHex = (str) =>
@@ -40,15 +38,10 @@ const toHex = (data) =>
    is(Number, data) 
       ? numToHex(data)
       : strToHex(data)
-   
+
 const toBase64 = (string) => Buffer.from(string).toString("base64")
 const hexToBytes = (hex) => Buffer.from(hex, "hex")
 const bytesToHex = (bytes) => bytes.toString("hex")
-const takeBytesAsHex = (n, input) =>
-   toHex(input)
-   |> hexToBytes
-   |> take(n)
-   |> bytesToHex
 
 // coinbase transaction format - https://bitcoin.stackexchange.com/a/20724
 const coinbaseTx = (blockTemp, wallet) => {
@@ -56,12 +49,16 @@ const coinbaseTx = (blockTemp, wallet) => {
    const inputCount = "01"
    const prevTx = "0000000000000000000000000000000000000000000000000000000000000000"
    // https://bitcoin.stackexchange.com/questions/72130/coinbase-transaction-data
-   // block height length (3) + first 3 bytes of block height + Arbitrary data
-   const cbScript = "03" + takeBytesAsHex(3, blockTemp.height) + toHex("Hala Madrid!")
+   // block height length (3) + little endian block height hex + Arbitrary data
+   const height = 
+      blockTemp.height
+      |> toHex
+      |> littleEndian
+   const cbScript = toHex(hexToBytes(height).length) + height + toHex("Hala Madrid!")
    const cbScriptLen = toHex(hexToBytes(cbScript).length)
    const sequence = "ffffffff"
    const outCount = "01"
-   const txValue = toHex(blockTemp.coinbasevalue)
+   const txValue = toHex(blockTemp.coinbasevalue) |> littleEndian
    const script = toHex(wallet)
    const scriptLen = toHex(wallet.length)
    const locktime = "00000000"
@@ -93,19 +90,18 @@ const merkleRoot = (txs) =>
                        merkleRoot(merkleLeaves(txs))
 
 const block = (blockTemp, wallet) => {
-   const version = toHex(blockTemp.version)
+   const version = toHex(blockTemp.version) |> littleEndian
    const prevHash = littleEndian(blockTemp.previousblockhash)
    const cbTx = coinbaseTx(blockTemp, wallet)
    const cbTxId = sha256d(cbTx)
    const merkleTree =
       blockTemp.transactions
       |> map(prop("txid"))
-      |> map(littleEndian)
    const merketRoot =
       (isEmpty(merkleTree))
          ? cbTxId
          : merkleRoot([cbTxId, ...merkleTree])
-   const ntime = toHex(Date.now())
+   const ntime = toHex(Date.now()) |> littleEndian
    const nbits = littleEndian(blockTemp.bits)
    const nonce = toHex(1)
    const txLen = toHex(merkleTree.length + 1)
@@ -189,7 +185,7 @@ const findValidBlock = (block, target, nTimeNonces, hashCnt) => {
    hashCnt++
    const blck = 
       nTimeNonce 
-      |> map(toHex)
+      |> map(compose(littleEndian, toHex))
       |> updateBlock(block)
    const hash =
       take(6, blck) // upto nonce
@@ -209,7 +205,6 @@ module.exports = {
    toBase64,
    hexToBytes,
    bytesToHex,
-   takeBytesAsHex,
    coinbaseTx,
    merkleLeaves,
    merkleRoot,

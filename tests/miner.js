@@ -1,6 +1,6 @@
 const { sha256, sha256d, toHex, littleEndian, 
         toBase64, hexToBytes, merkleRoot, bigEndian, 
-        scryptHash, takeBytesAsHex } = require("../src/miner")
+        scryptHash } = require("../src/miner")
 const { log } = require("console")
 
 const transactions = [
@@ -25,7 +25,6 @@ const main = () => {
    log("littleEndian:", littleEndian("4ebb191a") == "1a19bb4e")
    log("toBase64:", toBase64("Vikas Gautam") == "VmlrYXMgR2F1dGFt")
    log("hexToBytes:", hexToBytes(hex).toString() == "Vikas Gautam")
-   log("takeBytesAsHex:", takeBytesAsHex(3, 511824) == "07cf50")
 
    const merkleTree = transactions.map(littleEndian)
    log("merkleRoot:", bigEndian(merkleRoot(merkleTree)) == "60e96914503b6fba05feb27c343263471e8da0d855665f80c0f65a5cc0c6e6fd")
