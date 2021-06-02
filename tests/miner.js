@@ -1,6 +1,6 @@
 const { sha256, sha256d, toHex, littleEndian, 
         toBase64, hexToBytes, merkleRoot, bigEndian, 
-        scryptHash } = require("../src/miner")
+        scryptHash, takeBytesAsHex } = require("../src/miner")
 const { log } = require("console")
 
 const transactions = [
@@ -25,12 +25,13 @@ const main = () => {
    log("littleEndian:", littleEndian("4ebb191a") == "1a19bb4e")
    log("toBase64:", toBase64("Vikas Gautam") == "VmlrYXMgR2F1dGFt")
    log("hexToBytes:", hexToBytes(hex).toString() == "Vikas Gautam")
+   log("takeBytesAsHex:", takeBytesAsHex(3, 511824) == "07cf50")
 
    const merkleTree = transactions.map(littleEndian)
    log("merkleRoot:", bigEndian(merkleRoot(merkleTree)) == "60e96914503b6fba05feb27c343263471e8da0d855665f80c0f65a5cc0c6e6fd")
 
-   const blk = "040062002385f417d64d2b45597c23cac28c9a7cf0a3ffedbc54f7a926775a0956415d66c5e6b1d78037d8debd6337f4b7786126cb98f96f2e259586073bf235867f35e3da14ea5fffff0f1e13d40000"
-   log("scryptHash:", scryptHash(Buffer.from(blk, "hex")) == "00000b4bdd2b7681ea81fe1f060f1306a516f726f01ddbc07d81171e8c697f2c")
+   const blk = hexToBytes("040062002385f417d64d2b45597c23cac28c9a7cf0a3ffedbc54f7a926775a0956415d66c5e6b1d78037d8debd6337f4b7786126cb98f96f2e259586073bf235867f35e3da14ea5fffff0f1e13d40000")
+   log("scryptHash:", scryptHash(blk) == "00000b4bdd2b7681ea81fe1f060f1306a516f726f01ddbc07d81171e8c697f2c")
 }
 
 module.exports = main
