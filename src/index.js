@@ -3,10 +3,12 @@ const { log } = require("console")
 const { getBlockTemplate, block, nTimeNonceCombos,
         findValidBlock, submitBlock } = require("./miner")
 
+const pprint = (json) => JSON.stringify(json, null, 2)
+
 const main = async (args) => {
    const resp = await getBlockTemplate(args)
-   log(resp)
    const blockTemp = resp.Result
+   log("blockTemp:", pprint(blockTemp))
    const blck = block(blockTemp, args.wallet)
    const target = blockTemp.target
    const nTimeNonces = nTimeNonceCombos(blockTemp)

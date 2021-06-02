@@ -161,7 +161,7 @@ const updateBlock = (block) => ([ntime, nonce]) =>
    |> update(5, nonce)
 
 const findValidBlock = (block, target, nTimeNonces, hashCnt) => {
-   const { nTimeNonce, done } = nTimeNonces.next()
+   const { value: nTimeNonce, done } = nTimeNonces.next()
    if (done) return [hashCnt, null]
    hashCnt++
    const blck = 
