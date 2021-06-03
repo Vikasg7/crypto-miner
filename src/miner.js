@@ -1,6 +1,6 @@
 const { createHash, scryptSync } = require("crypto")
-const { splitEvery, join, compose, map,
-        concat, apply, last, append, 
+const { splitEvery, join, pipe, map,
+        concat, apply, last, append,
         head, prop, isEmpty, take, is } = require("ramda")
 const { range, cartesian, update, isOdd } = require("./utils")
 
@@ -29,15 +29,24 @@ const numToHex = (num) => {
    return isOdd(x.length) ? ("0" + x) : x
 }
 
-const strToHex = (str) =>
-   Buffer
-    .from(str)
-    .toString("hex")
-
 const toHex = (data) => 
    is(Number, data) 
       ? numToHex(data)
-      : strToHex(data)
+      : Buffer.from(data).toString("hex")
+
+const toBytesInt32 = (num) => {
+   const arr = new ArrayBuffer(4)
+   const view = new DataView(arr)
+   view.setUint32(0, num, true) // littleEndian = true
+   return arr
+}
+
+const toBytesInt64 = (num) => {
+   const arr = new ArrayBuffer(8)
+   const view = new DataView(arr)
+   view.setBigUint64(0, BigInt(num), true) // littleEndian = true
+   return arr
+}
 
 const toBase64 = (string) => Buffer.from(string).toString("base64")
 const hexToBytes = (hex) => Buffer.from(hex, "hex")
@@ -58,7 +67,10 @@ const coinbaseTx = (blockTemp, wallet) => {
    const cbScriptLen = toHex(hexToBytes(cbScript).length)
    const sequence = "ffffffff"
    const outCount = "01"
-   const txValue = toHex(blockTemp.coinbasevalue) |> littleEndian
+   const txValue = 
+      blockTemp.coinbasevalue
+      |> toBytesInt64
+      |> toHex
    const script = toHex(wallet)
    const scriptLen = toHex(wallet.length)
    const locktime = "00000000"
@@ -90,7 +102,10 @@ const merkleRoot = (txs) =>
                        merkleRoot(merkleLeaves(txs))
 
 const block = (blockTemp, wallet) => {
-   const version = toHex(blockTemp.version) |> littleEndian
+   const version = 
+      blockTemp.version
+      |> toBytesInt32
+      |> toHex
    const prevHash = littleEndian(blockTemp.previousblockhash)
    const cbTx = coinbaseTx(blockTemp, wallet)
    const cbTxId = sha256d(cbTx)
@@ -102,9 +117,9 @@ const block = (blockTemp, wallet) => {
       (isEmpty(merkleTree))
          ? cbTxId
          : merkleRoot([cbTxId, ...merkleTree])
-   const ntime = toHex(Date.now()) |> littleEndian
+   const ntime = 0
    const nbits = littleEndian(blockTemp.bits)
-   const nonce = toHex(1)
+   const nonce = 0
    const txLen = toHex(merkleTree.length + 1)
    const txs =
       blockTemp.transactions
@@ -186,7 +201,7 @@ const findValidBlock = (block, target, nTimeNonces, hashCnt) => {
    hashCnt++
    const blck = 
       nTimeNonce 
-      |> map(compose(littleEndian, toHex))
+      |> map(pipe(toBytesInt32, toHex))
       |> updateBlock(block)
    const hash =
       take(6, blck) // upto nonce
