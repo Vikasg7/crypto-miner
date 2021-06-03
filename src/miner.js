@@ -97,6 +97,7 @@ const block = (blockTemp, wallet) => {
    const merkleTree =
       blockTemp.transactions
       |> map(prop("txid"))
+      |> map(littleEndian)
    const merketRoot =
       (isEmpty(merkleTree))
          ? cbTxId
@@ -193,7 +194,7 @@ const findValidBlock = (block, target, nTimeNonces, hashCnt) => {
       |> scryptHash
    return hash >= target 
             ? [hashCnt, blck.join("")]
-            : findValidBlock(block, target, nTimeNonces)
+            : findValidBlock(block, target, nTimeNonces, hashCnt)
 }
 
 module.exports = {
