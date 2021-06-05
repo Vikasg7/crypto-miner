@@ -64,9 +64,9 @@ const wait = (seconds) =>
 // https://btcinformation.org/en/developer-reference#compactsize-unsigned-integers
 const compactSize = (size) =>
    size <= 252    ? toHex(size, "u8") :
-   size < 2 ** 16 ? fd + toHex(size, "u16") :
-   size < 2 ** 32 ? fe + toHex(size, "u32")
-                  : ff + toHex(size, "u64")
+   size < 2 ** 16 ? "fd" + toHex(size, "u16") :
+   size < 2 ** 32 ? "fe" + toHex(size, "u32")
+                  : "ff" + toHex(size, "u64")
 
 module.exports = {
    update: curry(update),
