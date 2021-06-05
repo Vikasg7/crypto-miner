@@ -1,158 +1,21 @@
-const { createHash, scryptSync } = require("crypto")
-const { splitEvery, join, pipe, map,
+const fetch = require("node-fetch")
+const { splitEvery, join, map, splitAt,
         concat, apply, last, append,
-        head, prop, isEmpty, take, is } = require("ramda")
-const { range, cartesian, update, isOdd } = require("./utils")
-
-const MAX_NONCE = 2 ** 32
-
-const sha256 = (input) =>
-   createHash("sha256")
-    .update(input, "hex")
-    .digest("hex")
-
-const sha256d = (input) =>
-   input
-   |> sha256
-   |> sha256
-
-const littleEndian = (input) =>
-   Buffer
-    .from(input, "hex")
-    .reverse()
-    .toString("hex")
-
-const bigEndian = littleEndian
-
-const numToHex = (num) => {
-   const x = num.toString(16)
-   return isOdd(x.length) ? ("0" + x) : x
-}
-
-const toHex = (data) => 
-   is(Number, data) 
-      ? numToHex(data)
-      : Buffer.from(data).toString("hex")
-
-const toBytesInt32 = (num) => {
-   const arr = new ArrayBuffer(4)
-   const view = new DataView(arr)
-   view.setUint32(0, num, true) // littleEndian = true
-   return arr
-}
-
-const toBytesInt64 = (num) => {
-   const arr = new ArrayBuffer(8)
-   const view = new DataView(arr)
-   view.setBigUint64(0, BigInt(num), true) // littleEndian = true
-   return arr
-}
-
-const toBase64 = (string) => Buffer.from(string).toString("base64")
-const hexToBytes = (hex) => Buffer.from(hex, "hex")
-const bytesToHex = (bytes) => bytes.toString("hex")
-
-// coinbase transaction format - https://bitcoin.stackexchange.com/a/20724
-const coinbaseTx = (blockTemp, wallet) => {
-   const version = "01000000"
-   const inputCount = "01"
-   const prevTx = "0000000000000000000000000000000000000000000000000000000000000000"
-   // https://bitcoin.stackexchange.com/questions/72130/coinbase-transaction-data
-   // block height length (3) + little endian block height hex + Arbitrary data
-   const height = 
-      blockTemp.height
-      |> toHex
-      |> littleEndian
-   const cbScript = toHex(hexToBytes(height).length) + height + toHex("Hala Madrid!")
-   const cbScriptLen = toHex(hexToBytes(cbScript).length)
-   const sequence = "ffffffff"
-   const outCount = "01"
-   const txValue = 
-      blockTemp.coinbasevalue
-      |> toBytesInt64
-      |> toHex
-   const script = toHex(wallet)
-   const scriptLen = toHex(wallet.length)
-   const locktime = "00000000"
-   const txHex = [
-      version,
-      inputCount,
-      prevTx,
-      cbScriptLen,
-      cbScript,
-      sequence,
-      outCount,
-      txValue,
-      scriptLen,
-      script,
-      locktime
-   ]
-   return txHex.join("")
-}
-
-const merkleLeaves = (txs) =>
-   splitEvery(2, txs)
-   |> map(apply(concat))
-   |> map(sha256d)
-
-// https://www.javatpoint.com/blockchain-merkle-tree
-const merkleRoot = (txs) =>
-   (txs.length == 1) ? head(txs) :
-   isOdd(txs.length) ? merkleRoot(append(last(txs), txs)) :
-                       merkleRoot(merkleLeaves(txs))
-
-const block = (blockTemp, wallet) => {
-   const version = 
-      blockTemp.version
-      |> toBytesInt32
-      |> toHex
-   const prevHash = littleEndian(blockTemp.previousblockhash)
-   const cbTx = coinbaseTx(blockTemp, wallet)
-   const cbTxId = sha256d(cbTx)
-   const merkleTree =
-      blockTemp.transactions
-      |> map(prop("txid"))
-      |> map(littleEndian)
-   const merketRoot =
-      (isEmpty(merkleTree))
-         ? cbTxId
-         : merkleRoot([cbTxId, ...merkleTree])
-   const ntime = 0
-   const nbits = littleEndian(blockTemp.bits)
-   const nonce = 0
-   const txLen = toHex(merkleTree.length + 1)
-   const txs =
-      blockTemp.transactions
-      |> map(prop("data"))
-   return [
-      version,
-      prevHash,
-      merketRoot,
-      ntime,
-      nbits,
-      nonce,
-      txLen,
-      cbTx,
-      ...txs
-   ]
-}
-
-// https://litecoin.info/index.php/Scrypt
-const scryptHash = (block) => {
-   const bytes = hexToBytes(block)
-   return scryptSync(bytes, bytes, 32, { N: 1024, r: 1, p: 1 })
-          |> bytesToHex
-          |> bigEndian
-}
+        head, prop, isEmpty, take, length } = require("ramda")
+const { update, isOdd, toBytesLE, toHex, 
+        pprint, toHexLE, sha256d, toBytes,
+        scryptHash, toBase64, hash160, 
+        wait, compactSize } = require("./utils")
+const { log } = require("console")
 
 const getBlockTemplate = async (opts) => {
    const options = {
       method: "POST",
       headers: {
          "Authorization": "Basic " + toBase64(`${opts.user}:${opts.pass}`),
-         "Content-Type": "Application/json" 
+         "Content-Type": "application/json"
       },
-      data: JSON.stringify({
+      body: JSON.stringify({
          "jsonrpc": "1.0",
          "id": "hala",
          "method": "getblocktemplate",
@@ -171,7 +34,7 @@ const submitBlock = async (opts, blockhex) => {
          "Authorization": "Basic " + toBase64(`${opts.user}:${opts.pass}`),
          "Content-Type": "Application/json"
       },
-      data: JSON.stringify({
+      body: JSON.stringify({
          "jsonrpc": "1.0",
          "id": "hala",
          "method": "submitblock",
@@ -183,52 +46,163 @@ const submitBlock = async (opts, blockhex) => {
    return resp.json()
 }
 
-const nTimeNonceCombos = (blockTemp) => {
-   const { curtime, mintime } = blockTemp
-   const nTimeRange = range(mintime, (curtime + 1))
-   const nonceRange = range(1, MAX_NONCE + 1)
-   return cartesian(nTimeRange, nonceRange)
+// coinbase transaction format - https://bitcoin.stackexchange.com/a/20724
+// coinbase transaction decoder - https://live.blockcypher.com/btc/decodetx/
+const coinbaseTx = (blockTemplate, wallet) => {
+   const version = "01000000"
+   const inputCount = "01"
+   const prevTx = "0000000000000000000000000000000000000000000000000000000000000000"
+   const prevOut = "ffffffff"
+   // https://bitcoin.stackexchange.com/questions/72130/coinbase-transaction-data
+   // block height length (3) + little endian block height hex + Arbitrary data
+   const heightHexLen = "03"
+   const heightHex = 
+      toBytesLE(blockTemplate.height, "u64")
+      |> take(3)
+      |> toHex
+   const scriptSig = heightHexLen + heightHex + toHex("Hala Madrid!")
+   const scriptSigLen =
+      toBytes(scriptSig, "hex")
+      |> length
+      |> toHex(?, "u8")
+   const sequence = "ffffffff"
+   const outCount = "01"
+   const txValue = toHexLE(blockTemplate.coinbasevalue, "u64")
+   // https://en.bitcoin.it/wiki/Script
+   // scriptPubKey: OP_DUP OP_HASH160 <pubKeyHash> OP_EQUALVERIFY OP_CHECKSIG
+   const scriptPubKey = "76" + "a9" + "14" + toHex(hash160(wallet)) + "88" + "ac"
+   const scriptLen =
+      toBytes(scriptPubKey, "hex")
+      |> length 
+      |> toHex(?, "u8")
+   const locktime = "00000000"
+   return [
+      version,
+      inputCount,
+      prevTx,
+      prevOut,
+      scriptSigLen,
+      scriptSig,
+      sequence,
+      outCount,
+      txValue,
+      scriptLen,
+      scriptPubKey,
+      locktime
+   ]
 }
 
-const updateBlock = (block) => ([ntime, nonce]) =>
-   block
-   |> update(3, ntime)
-   |> update(5, nonce)
+const merkleLeaves = (txs) =>
+   splitEvery(2, txs)
+   |> map(apply(concat))
+   |> map(sha256d)
 
-const findValidBlock = (block, target, nTimeNonces, hashCnt) => {
-   const { value: nTimeNonce, done } = nTimeNonces.next()
-   if (done) return [hashCnt, null]
-   hashCnt++
-   const blck = 
-      nTimeNonce 
-      |> map(pipe(toBytesInt32, toHex))
-      |> updateBlock(block)
-   const hash =
-      take(6, blck) // upto nonce
+// https://www.javatpoint.com/blockchain-merkle-tree
+const merkleRoot = (txs) =>
+   (txs.length == 1) ? head(txs) :
+   isOdd(txs.length) ? merkleRoot(append(last(txs), txs)) :
+                       merkleRoot(merkleLeaves(txs))
+
+// https://btcinformation.org/en/developer-reference#compactsize-unsigned-integers
+const block = (blockTemplate, cbTx) => {
+   const version = toHexLE(blockTemplate.version, "u32")
+   const prevHash = toHexLE(blockTemplate.previousblockhash, "hex")
+   const cbTxId = sha256d(cbTx)
+   const merkleTree =
+      blockTemplate.transactions
+      |> map(prop("txid"))
+      |> map(toHexLE(?, "hex"))
+   const merketRoot =
+      (isEmpty(merkleTree))
+         ? cbTxId
+         : merkleRoot([cbTxId, ...merkleTree])
+   const ntime = toHexLE(blockTemplate.curtime, "u32")
+   const nbits = toHexLE(blockTemplate.bits, "hex")
+   const nonce = 0
+   const txLen = compactSize(merkleTree.length + 1)
+   const txs = blockTemplate.transactions |> map(prop("data"))
+   return [
+      version,
+      prevHash,
+      merketRoot,
+      ntime,
+      nbits,
+      nonce,
+      txLen,
+      cbTx,
+      ...txs
+   ]
+}
+
+const MAX_NONCE = 2 ** 32
+
+const goldenNonce = (blockHeader, target) => {
+   const bytesBeforeNonce = 
+      take(5, blockHeader)
       |> join("")
-      |> scryptHash
-   return hash >= target 
-            ? [hashCnt, blck.join("")]
-            : findValidBlock(block, target, nTimeNonces, hashCnt)
+      |> toBytes(?, "hex")
+   let hashCnt = 0
+
+   for (let nonce = 1; nonce <= MAX_NONCE; nonce++) {
+      hashCnt++
+      let hash =
+         [bytesBeforeNonce, toBytesLE(nonce, "u32")]
+         |> Buffer.concat
+         |> scryptHash
+      if (hash <= target) 
+         return [hashCnt, hash, nonce]
+   }
+
+   return [hashCnt, null, null]
+}
+
+const miner = async (args) => {
+   const resp = await getBlockTemplate(args)
+   const blockTemplate = resp.result
+   
+   if (isEmpty(blockTemplate.transactions)) {
+      await wait(0.5)
+      return miner(args)
+   }
+   
+   log("\nblockHeight:", blockTemplate.height)
+   log("transactionCount:", blockTemplate.transactions.length)
+   const cbTx = coinbaseTx(blockTemplate, args.wallet)
+   // log("cbTx:", pprint(cbTx))
+   const [blockHeader, tail] = 
+      block(blockTemplate, cbTx.join(""))
+      |> splitAt(6)
+   // log("block:", pprint(blockHeader.concat(tail)))
+   const target = blockTemplate.target
+   const sTime = Date.now()
+   const [hashCnt, hash, nonce] = goldenNonce(blockHeader, target)
+   const eTime = Date.now()
+   const timeTaken = (eTime - sTime) / 1000
+   log("%d hashes checked in %s minutes at hashRate: %s KH/sec", hashCnt, (timeTaken / 60).toFixed(2) , (hashCnt / 1000 / timeTaken).toFixed(2))
+   log("nonce: ", nonce)
+   log("target:", target)
+   log("hash:", hash)
+   
+   if (nonce == null) 
+      return miner(args)
+
+   const blockHex =
+      toHexLE(nonce, "u32")
+      |> update(blockHeader, 5)
+      |> concat(?, tail)
+      |> join("")
+   const submitResp = await submitBlock(args, blockHex)
+   log("submitResp:", submitResp.result)
+   return miner(args)
 }
 
 module.exports = {
-   sha256,
-   sha256d,
-   littleEndian,
-   bigEndian,
-   toHex,
-   toBase64,
-   hexToBytes,
-   bytesToHex,
    coinbaseTx,
    merkleLeaves,
    merkleRoot,
    block,
-   scryptHash,
    getBlockTemplate,
    submitBlock,
-   nTimeNonceCombos,
-   updateBlock,
-   findValidBlock
+   goldenNonce,
+   miner
 }
