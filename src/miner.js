@@ -182,7 +182,7 @@ const goldenBlock = (blockTemplate, wallet) => {
    const blockHex = (nonce) =>
       toHexLE(nonce, "u32")
       |> append(?, head)
-      |> concat(tail)
+      |> concat(?, tail)
       |> join("")
 
    const sTime = Date.now()
@@ -215,7 +215,7 @@ const blockTemplates = (args) =>
 
 const logResult = (resp) => 
    log(`result: ${resp.result}\n`+
-       `error : ${resp.error}`)
+       `error : ${pprint(resp.error)}`)
 
 const main = (args) =>
    blockTemplates(args)
