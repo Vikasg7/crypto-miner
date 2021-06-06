@@ -214,8 +214,8 @@ const blockTemplates = (args) =>
    |> RxOp.distinctUntilKeyChanged("transactions", compareLists)
 
 const logResult = (resp) => 
-   log(`result: ${resp.result}\n`+
-       `error : ${resp.error}`)
+   log(`result     : ${resp.result}\n`+
+       `error      : ${resp.error}`)
 
 const main = (args) =>
    blockTemplates(args)
