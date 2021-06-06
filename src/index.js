@@ -1,5 +1,5 @@
 const yargs = require("yargs")
-const { miner } = require("./miner")
+const { main } = require("./miner")
 const { log } = require("console")
 
 const args =
@@ -34,4 +34,4 @@ const args =
     .help()
     .argv
 
-miner(args).catch(log)
+main(args).subscribe(null, log)

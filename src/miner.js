@@ -2,12 +2,14 @@ const fetch = require("node-fetch")
 const { splitEvery, join, map, splitAt,
         concat, apply, last, append,
         head, prop, isEmpty, take, length } = require("ramda")
-const { update, isOdd, toBytesLE, toHex, 
-        pprint, toHexLE, sha256d, toBytes,
-        scryptHash, toBase64, hash160, 
-        wait, compactSize } = require("./utils")
+const { isOdd, toBytesLE, toHex, pprint,
+        toHexLE, sha256d, toBytes, toBase64,
+        scryptHash,  hash160, compactSize } = require("./utils")
 const { log } = require("console")
+const Rx = require("rxjs")
+const RxOp = require("rxjs/operators")
 
+// https://en.bitcoin.it/wiki/BIP_0022
 const getBlockTemplate = async (opts) => {
    const options = {
       method: "POST",
@@ -53,15 +55,15 @@ const coinbaseTx = (blockTemplate, wallet) => {
    const inputCount = "01"
    const prevTx = "0000000000000000000000000000000000000000000000000000000000000000"
    const prevOut = "ffffffff"
-   
+
    // https://bitcoin.stackexchange.com/questions/72130/coinbase-transaction-data
-   // block height length (3) + little endian block height hex + Arbitrary data
    const heightHexLen = "03"
    const heightHex = 
       toBytesLE(blockTemplate.height, "u64")
       |> take(3)
       |> toHex
 
+   // block height length (3) + little endian block height hex (first 3 bytes) + Arbitrary data
    const scriptSig = heightHexLen + heightHex + toHex("Hala Madrid!")
 
    const scriptSigLen =
@@ -72,6 +74,7 @@ const coinbaseTx = (blockTemplate, wallet) => {
    const sequence = "ffffffff"
    const outCount = "01"
    const txValue = toHexLE(blockTemplate.coinbasevalue, "u64")
+   
    // https://en.bitcoin.it/wiki/Script
    // scriptPubKey: OP_DUP OP_HASH160 <Bytes To Push> <pubKeyHash> OP_EQUALVERIFY OP_CHECKSIG
    const scriptPubKey = "76" + "a9" + "14" + toHex(hash160(wallet)) + "88" + "ac"
@@ -110,9 +113,10 @@ const merkleRoot = (txs) =>
                      : merkleRoot(merkleLeaves(txs))
 
 // https://btcinformation.org/en/developer-reference#compactsize-unsigned-integers
-const block = (blockTemplate, cbTx) => {
+const block = (blockTemplate, wallet) => {
    const version = toHexLE(blockTemplate.version, "u32")
    const prevHash = toHexLE(blockTemplate.previousblockhash, "hex")
+   const cbTx = coinbaseTx(blockTemplate, wallet).join("")
    const cbTxId = sha256d(cbTx)
    
    const merkleTree =
@@ -145,66 +149,79 @@ const block = (blockTemplate, cbTx) => {
 
 const MAX_NONCE = 2 ** 32
 
-const goldenNonce = (blockHeader, target) => {
-   const bytesBeforeNonce = 
-      take(5, blockHeader)
+const report = (nonce, sTime) => {
+   const timeTaken = Math.floor((Date.now() - sTime) / 1000)
+   const seconds  = timeTaken % 60
+   const minutes  = (timeTaken - seconds) / 60
+   const hashRate = (nonce / 1000 / timeTaken).toFixed(2)
+   log(`nonce      : ${nonce}\n`+
+       `time taken : ${minutes}:${seconds}\n`+
+       `hashRate   : ${hashRate} KH/sec`)
+}
+
+const goldenBlock = (blockTemplate, wallet) => {
+   log("\nblockHeight:", blockTemplate.height)
+   
+   const [head, [nonce, ...tail]] =
+      block(blockTemplate, wallet)
+      |> splitAt(5)
+
+   const target = blockTemplate.target
+   
+   const headBytes = 
+      head
       |> join("")
       |> toBytes(?, "hex")
-   
-   let hashCnt = 0
 
-   for (let nonce = 1; nonce <= MAX_NONCE; nonce++) {
-      hashCnt++
-      let hash =
-         [bytesBeforeNonce, toBytesLE(nonce, "u32")]
-         |> Buffer.concat
-         |> scryptHash
-      if (hash <= target) 
-         return [hashCnt, hash, nonce]
-   }
+   const isGolden = (nonce) =>
+      [headBytes, toBytesLE(nonce, "u32")]
+      |> Buffer.concat
+      |> scryptHash
+      |> ((hash) => hash <= target ? [nonce] : [])
 
-   return [hashCnt, null, null]
-}
-
-const miner = async (args) => {
-   const resp = await getBlockTemplate(args)
-   const blockTemplate = resp.result
-   
-   if (isEmpty(blockTemplate.transactions)) {
-      await wait(0.5)
-      return miner(args)
-   }
-   
-   log("\nblockHeight:", blockTemplate.height)
-   log("transactionCount:", blockTemplate.transactions.length)
-   const cbTx = coinbaseTx(blockTemplate, args.wallet)
-   // log("cbTx:", pprint(cbTx))
-   const [blockHeader, tail] = 
-      block(blockTemplate, cbTx.join(""))
-      |> splitAt(6)
-   // log("block:", pprint(blockHeader.concat(tail)))
-   const target = blockTemplate.target
-   const sTime = Date.now()
-   const [hashCnt, hash, nonce] = goldenNonce(blockHeader, target)
-   const eTime = Date.now()
-   const timeTaken = (eTime - sTime) / 1000
-   log("%d hashes checked in %s minutes at hashRate: %s KH/sec", hashCnt, (timeTaken / 60).toFixed(2) , (hashCnt / 1000 / timeTaken).toFixed(2))
-   log("nonce: ", nonce)
-   log("target:", target)
-   log("hash:", hash)
-   
-   if (nonce == null) 
-      return miner(args)
-
-   const blockHex =
+   const blockHex = (nonce) =>
       toHexLE(nonce, "u32")
-      |> update(blockHeader, 5)
-      |> concat(?, tail)
+      |> append(?, head)
+      |> concat(tail)
       |> join("")
-   const submitResp = await submitBlock(args, blockHex)
-   log("submitResp:", submitResp.result)
-   return miner(args)
+
+   const sTime = Date.now()
+
+   return Rx.range(1, MAX_NONCE, Rx.asyncScheduler)
+          |> RxOp.mergeMap(isGolden, 32)
+          |> RxOp.take(1)
+          |> RxOp.tap(report(?, sTime))
+          |> RxOp.map(blockHex)
 }
+
+const mine = (blockTemplate, wallet) =>
+   hasTransactions(blockTemplate)
+      ? goldenBlock(blockTemplate, wallet)
+      : Rx.EMPTY
+
+const hasTransactions = (blockTemplate) =>
+   blockTemplate.transactions.length > 0
+
+const compareLists = (a, b) =>
+   a[0]?.txid == b[0]?.txid
+
+const blockTemplates = (args) =>
+   Rx.of(args)
+   |> RxOp.delay(1 * 1000)
+   |> RxOp.concatMap(getBlockTemplate)
+   |> RxOp.repeat()
+   |> RxOp.pluck("result")
+   |> RxOp.distinctUntilKeyChanged("transactions", compareLists)
+
+const logResult = (resp) => 
+   log(`result: ${resp.result}\n`+
+       `error : ${resp.error}`)
+
+const main = (args) =>
+   blockTemplates(args)
+   |> RxOp.switchMap(mine(?, args.wallet))
+   |> RxOp.mergeMap(submitBlock(args, ?))
+   |> RxOp.tap(logResult)
 
 module.exports = {
    coinbaseTx,
@@ -213,6 +230,5 @@ module.exports = {
    block,
    getBlockTemplate,
    submitBlock,
-   goldenNonce,
-   miner
+   main
 }

@@ -1,11 +1,6 @@
 const { createHash, scryptSync } = require("crypto")
-const { curry, is } = require("ramda")
+const { is } = require("ramda")
 const base58 = require("bs58")
-
-const update = (list, idx, item) => {
-   list.splice(idx, 1, item)
-   return list
-}
 
 const isOdd = (num) => (num % 2) === 1
 
@@ -57,8 +52,6 @@ const toHexBE = toHexLE
 
 const toBase64 = (string) => Buffer.from(string).toString("base64")
 const pprint = (json) => JSON.stringify(json, null, 2)
-const wait = (seconds) =>
-   new Promise((resolve, reject) => setTimeout(() => resolve(), seconds * 1000))
 
 // https://btcinformation.org/en/glossary/compactsize
 // https://btcinformation.org/en/developer-reference#compactsize-unsigned-integers
@@ -69,7 +62,6 @@ const compactSize = (size) =>
                   : "ff" + toHex(size, "u64")
 
 module.exports = {
-   update: curry(update),
    isOdd,
    sha256,
    sha256d,
@@ -83,6 +75,5 @@ module.exports = {
    toBase64,
    pprint,
    hash160,
-   wait,
    compactSize
 }
