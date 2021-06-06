@@ -215,7 +215,7 @@ const blockTemplates = (args) =>
 
 const logResult = (resp) => 
    log(`result: ${resp.result}\n`+
-       `error : ${pprint(resp.error)}`)
+       `error : ${resp.error}`)
 
 const main = (args) =>
    blockTemplates(args)
