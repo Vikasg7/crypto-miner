@@ -159,7 +159,7 @@ const report = (nonce, sTime) => {
        `hashRate   : ${hashRate} KH/sec`)
 }
 
-const goldenBlock = (blockTemplate, wallet) => {
+const mineBlock = (blockTemplate, wallet) => {
    log("\nblockHeight:", blockTemplate.height)
    
    const [head, [nonce, ...tail]] =
@@ -194,12 +194,6 @@ const goldenBlock = (blockTemplate, wallet) => {
           |> RxOp.map(blockHex)
 }
 
-const mine = (blockTemplate, wallet) =>
-   hasTransactions(blockTemplate)
-      ? goldenBlock(blockTemplate, wallet)
-      : Rx.EMPTY
-
-const hasTransactions = (blockTemplate) => blockTemplate.transactions.length > 0
 const txnCount = (blockTemplate) => blockTemplate.transactions.length
 
 const compareResult = (a, b) =>
@@ -220,7 +214,7 @@ const logResult = (resp) =>
 
 const main = (args) =>
    blockTemplates(args)
-   |> RxOp.switchMap(mine(?, args.wallet))
+   |> RxOp.switchMap(mineBlock(?, args.wallet))
    |> RxOp.mergeMap(submitBlock(args, ?))
    |> RxOp.tap(logResult)
 
