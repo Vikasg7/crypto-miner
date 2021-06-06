@@ -199,19 +199,20 @@ const mine = (blockTemplate, wallet) =>
       ? goldenBlock(blockTemplate, wallet)
       : Rx.EMPTY
 
-const hasTransactions = (blockTemplate) =>
-   blockTemplate.transactions.length > 0
+const hasTransactions = (blockTemplate) => blockTemplate.transactions.length > 0
+const txnCount = (blockTemplate) => blockTemplate.transactions.length
 
-const compareLists = (a, b) =>
-   a[0]?.txid == b[0]?.txid
+const compareResult = (a, b) =>
+   a.height == b.height &&
+   txnCount(a) == txnCount(b)
 
 const blockTemplates = (args) =>
    Rx.of(args)
    |> RxOp.delay(1 * 1000)
    |> RxOp.concatMap(getBlockTemplate)
    |> RxOp.repeat()
+   |> RxOp.distinctUntilKeyChanged("result", compareResult)
    |> RxOp.pluck("result")
-   |> RxOp.distinctUntilKeyChanged("transactions", compareLists)
 
 const logResult = (resp) => 
    log(`result     : ${resp.result}\n`+

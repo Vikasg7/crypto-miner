@@ -12,4 +12,4 @@ I tested the code against dogecoin testnet server/wallet. I wasn't able to mine 
 PS. I succesfully mined [3201211](https://chain.so/block/DOGETEST/3201211) on sochain DOGETEST and many others.  
 
 # Control flow  
-Miner is designed to process the blockTemplates having transactions and it switches to the new blocks as they are available while cancelling the processing of the old ones as they are deemed already mined.
+Miner is designed to switches to the new blocks as they are available while cancelling the processing of the old ones as they are deemed already mined.
