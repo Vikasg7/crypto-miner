@@ -1,6 +1,7 @@
 const { createHash, scryptSync } = require("crypto")
-const { is, range, concat, map, multiply, splitEvery, apply, zip, update } = require("ramda")
+const { is, range, concat, map, multiply, splitEvery, apply, zip, update, not } = require("ramda")
 const base58 = require("bs58")
+const { log } = require("console")
 
 const isOdd = (num) => (num % 2) === 1
 
@@ -69,6 +70,18 @@ const splitNumToRanges = (num, divBy) =>
    |> splitEvery(divBy)
    |> apply(zip)
 
+   
+const isObject = (value) =>
+   typeof value === "object"   &&
+   typeof value !== "function" &&
+   not(Array.isArray(value))   &&
+   value !== null
+
+const report = (k, v) =>
+   Array.isArray(k) ? k.forEach(report(?, v)) :
+   isObject(v)      ? log(`${k} : ${v[k.trim()]}`)
+                    : log(`${k} : ${v}`)
+
 module.exports = {
    isOdd,
    sha256,
@@ -84,5 +97,7 @@ module.exports = {
    pprint,
    hash160,
    compactSize,
-   splitNumToRanges
+   splitNumToRanges,
+   isObject,
+   report
 }

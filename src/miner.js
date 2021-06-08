@@ -2,10 +2,9 @@ const fetch = require("node-fetch")
 const { splitEvery, join, map, splitAt,
         concat, apply, last, append,
         head, prop, isEmpty, take, length } = require("ramda")
-const { isOdd, toBytesLE, toHex, pprint, toHexLE,
+const { isOdd, toBytesLE, toHex, report, toHexLE,
         sha256d, toBytes, toBase64, scryptHash,
         hash160, compactSize, splitNumToRanges } = require("./utils")
-const { log } = require("console")
 const Rx = require("rxjs")
 const RxOp = require("rxjs/operators")
 
@@ -112,7 +111,6 @@ const merkleRoot = (txs) =>
    isOdd(txs.length) ? merkleRoot(append(last(txs), txs))
                      : merkleRoot(merkleLeaves(txs))
 
-// https://btcinformation.org/en/developer-reference#compactsize-unsigned-integers
 const block = (blockTemplate, wallet) => {
    const version = toHexLE(blockTemplate.version, "u32")
    const prevHash = toHexLE(blockTemplate.previousblockhash, "hex")
@@ -180,6 +178,7 @@ const mineBlock = (blockTemplate, { wallet, threads}) => {
    return Rx.from(splitNumToRanges(MAX_NONCE, threads))
           |> RxOp.mergeMap(findGoldenNonce, threads)
           |> RxOp.take(1)
+          |> RxOp.tap(report("nonce ", ?))
           |> RxOp.map(blockHex)
 }
 
@@ -197,17 +196,12 @@ const blockTemplates = (args) =>
    |> RxOp.distinctUntilKeyChanged("result", compareResult)
    |> RxOp.pluck("result")
 
-const report = (k, mp) =>
-   Array.isArray(k)
-      ? k.forEach(report(?, mp))
-      : log(`${k}\t: ${mp[k]}`)
-
 const main = (args) =>
    blockTemplates(args)
    |> RxOp.tap(report("height", ?))
    |> RxOp.switchMap(mineBlock(?, args))
    |> RxOp.mergeMap(submitBlock(args, ?))
-   |> RxOp.tap(report(["result", "error"], ?))
+   |> RxOp.tap(report(["result", "error "], ?))
 
 module.exports = {
    coinbaseTx,
