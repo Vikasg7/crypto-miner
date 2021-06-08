@@ -1,5 +1,5 @@
 const { createHash, scryptSync } = require("crypto")
-const { is } = require("ramda")
+const { is, range, concat, map, multiply, splitEvery, apply, zip, update } = require("ramda")
 const base58 = require("bs58")
 
 const isOdd = (num) => (num % 2) === 1
@@ -42,7 +42,7 @@ const toBytes = (data, type) =>
 const toHex = (data, type) =>
    is(Buffer, data) 
       ? data.toString("hex")
-      : toHex(toBytes(data, type)) 
+      : toBytes(data, type) |> toHex 
 
 const toBytesLE = (data, type) => toBytes(data, type).reverse()
 const toBytesBE = toBytesLE
@@ -61,6 +61,14 @@ const compactSize = (size) =>
    size < 2 ** 32 ? "fe" + toHex(size, "u32")
                   : "ff" + toHex(size, "u64")
 
+const splitNumToRanges = (num, divBy) => 
+   [range(0, divBy), range(1, divBy + 1)]
+   |> apply(concat)
+   |> map(multiply(?, num / divBy | 0))
+   |> update(-1, num)
+   |> splitEvery(divBy)
+   |> apply(zip)
+
 module.exports = {
    isOdd,
    sha256,
@@ -75,5 +83,6 @@ module.exports = {
    toBase64,
    pprint,
    hash160,
-   compactSize
+   compactSize,
+   splitNumToRanges
 }

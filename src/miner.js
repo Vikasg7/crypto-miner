@@ -2,9 +2,9 @@ const fetch = require("node-fetch")
 const { splitEvery, join, map, splitAt,
         concat, apply, last, append,
         head, prop, isEmpty, take, length } = require("ramda")
-const { isOdd, toBytesLE, toHex, pprint,
-        toHexLE, sha256d, toBytes, toBase64,
-        scryptHash,  hash160, compactSize } = require("./utils")
+const { isOdd, toBytesLE, toHex, pprint, toHexLE,
+        sha256d, toBytes, toBase64, scryptHash,
+        hash160, compactSize, splitNumToRanges } = require("./utils")
 const { log } = require("console")
 const Rx = require("rxjs")
 const RxOp = require("rxjs/operators")
@@ -149,19 +149,7 @@ const block = (blockTemplate, wallet) => {
 
 const MAX_NONCE = 2 ** 32
 
-const report = (nonce, sTime) => {
-   const timeTaken = Math.floor((Date.now() - sTime) / 1000)
-   const seconds  = timeTaken % 60
-   const minutes  = (timeTaken - seconds) / 60
-   const hashRate = (nonce / 1000 / timeTaken).toFixed(2)
-   log(`nonce      : ${nonce}\n`+
-       `time taken : ${minutes}:${seconds}\n`+
-       `hashRate   : ${hashRate} KH/sec`)
-}
-
-const mineBlock = (blockTemplate, wallet) => {
-   log("\nblockHeight:", blockTemplate.height)
-   
+const mineBlock = (blockTemplate, { wallet, threads}) => {
    const [head, [nonce, ...tail]] =
       block(blockTemplate, wallet)
       |> splitAt(5)
@@ -179,18 +167,19 @@ const mineBlock = (blockTemplate, wallet) => {
       |> scryptHash
       |> ((hash) => hash <= target ? [nonce] : [])
 
+   const findGoldenNonce = ([f, t]) =>
+      Rx.range(f, t - f, Rx.asyncScheduler)
+      |> RxOp.mergeMap(isGolden)
+
    const blockHex = (nonce) =>
       toHexLE(nonce, "u32")
       |> append(?, head)
       |> concat(?, tail)
       |> join("")
 
-   const sTime = Date.now()
-
-   return Rx.range(1, MAX_NONCE, Rx.asyncScheduler)
-          |> RxOp.mergeMap(isGolden, 32)
+   return Rx.from(splitNumToRanges(MAX_NONCE, threads))
+          |> RxOp.mergeMap(findGoldenNonce, threads)
           |> RxOp.take(1)
-          |> RxOp.tap(report(?, sTime))
           |> RxOp.map(blockHex)
 }
 
@@ -208,15 +197,17 @@ const blockTemplates = (args) =>
    |> RxOp.distinctUntilKeyChanged("result", compareResult)
    |> RxOp.pluck("result")
 
-const logResult = (resp) => 
-   log(`result     : ${resp.result}\n`+
-       `error      : ${resp.error}`)
+const report = (k, mp) =>
+   Array.isArray(k)
+      ? k.forEach(report(?, mp))
+      : log(`${k}\t: ${mp[k]}`)
 
 const main = (args) =>
    blockTemplates(args)
-   |> RxOp.switchMap(mineBlock(?, args.wallet))
+   |> RxOp.tap(report("height", ?))
+   |> RxOp.switchMap(mineBlock(?, args))
    |> RxOp.mergeMap(submitBlock(args, ?))
-   |> RxOp.tap(logResult)
+   |> RxOp.tap(report(["result", "error"], ?))
 
 module.exports = {
    coinbaseTx,

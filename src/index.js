@@ -29,6 +29,13 @@ const args =
           demandOption: true,
           describe: "miner's wallet",
           alias: "wallet"
+       },
+       "t": {
+          type: "number",
+          demandOption: true,
+          describe: "threads",
+          alias: "threads",
+          default: 1
        }
     })
     .help()
