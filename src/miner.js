@@ -33,7 +33,7 @@ const submitBlock = async (opts, blockhex) => {
       method: "POST",
       headers: {
          "Authorization": "Basic " + toBase64(`${opts.user}:${opts.pass}`),
-         "Content-Type": "Application/json"
+         "Content-Type": "application/json"
       },
       body: JSON.stringify({
          "jsonrpc": "1.0",
@@ -167,7 +167,7 @@ const mineBlock = (blockTemplate, { wallet, threads}) => {
 
    const findGoldenNonce = ([f, t]) =>
       Rx.range(f, t - f, Rx.asyncScheduler)
-      |> RxOp.mergeMap(isGolden)
+      |> RxOp.mergeMap(isGolden, 8)
 
    const blockHex = (nonce) =>
       toHexLE(nonce, "u32")
@@ -176,7 +176,7 @@ const mineBlock = (blockTemplate, { wallet, threads}) => {
       |> join("")
 
    return Rx.from(splitNumToRanges(MAX_NONCE, threads))
-          |> RxOp.mergeMap(findGoldenNonce, threads)
+          |> RxOp.mergeMap(findGoldenNonce)
           |> RxOp.take(1)
           |> RxOp.tap(report("nonce ", ?))
           |> RxOp.map(blockHex)

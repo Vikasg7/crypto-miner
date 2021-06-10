@@ -63,13 +63,11 @@ const compactSize = (size) =>
                   : "ff" + toHex(size, "u64")
 
 const splitNumToRanges = (num, divBy) => 
-   [range(0, divBy), range(1, divBy + 1)]
-   |> apply(concat)
+   concat(range(0, divBy), range(1, divBy + 1))
    |> map(multiply(?, num / divBy | 0))
    |> update(-1, num)
    |> splitEvery(divBy)
    |> apply(zip)
-
    
 const isObject = (value) =>
    typeof value === "object"   &&
