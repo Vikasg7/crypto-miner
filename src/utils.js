@@ -1,5 +1,6 @@
 const { createHash, scryptSync } = require("crypto")
-const { is, range, concat, map, multiply, splitEvery, apply, zip, update, not } = require("ramda")
+const { is, range, concat, map, multiply, 
+        splitEvery, apply, zip, update, not } = require("ramda")
 const base58 = require("bs58")
 const { log } = require("console")
 

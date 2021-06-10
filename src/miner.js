@@ -167,7 +167,7 @@ const mineBlock = (blockTemplate, { wallet, threads}) => {
 
    const findGoldenNonce = ([f, t]) =>
       Rx.range(f, t - f, Rx.asyncScheduler)
-      |> RxOp.mergeMap(isGolden, 8)
+      |> RxOp.mergeMap(isGolden)
 
    const blockHex = (nonce) =>
       toHexLE(nonce, "u32")
