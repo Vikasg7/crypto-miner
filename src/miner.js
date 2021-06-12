@@ -1,9 +1,9 @@
 const fetch = require("node-fetch")
 const { splitEvery, join, map, splitAt,
-        concat, apply, last, append,
-        head, prop, isEmpty, take, length } = require("ramda")
-const { isOdd, toBytesLE, toHex, report, toHexLE,
-        sha256d, toBytes, toBase64, scryptHash,
+        concat, apply, last, append, tap,
+        head, prop, isEmpty, take, length} = require("ramda")
+const { isOdd, toBytesLE, toHex, report, toHexLE, sha256d,
+        toBytes, toBase64, scryptHash, lessThanEq,
         hash160, compactSize, splitNumToRanges } = require("./utils")
 const Rx = require("rxjs")
 const RxOp = require("rxjs/operators")
@@ -152,18 +152,17 @@ const mineBlock = (blockTemplate, { wallet, threads}) => {
       block(blockTemplate, wallet)
       |> splitAt(5)
 
-   const target = blockTemplate.target
+   const target = toBytes(blockTemplate.target, "hex")
    
    const headBytes = 
-      head
-      |> join("")
+      head.join("")
       |> toBytes(?, "hex")
 
    const isGolden = (nonce) =>
       [headBytes, toBytesLE(nonce, "u32")]
       |> Buffer.concat
       |> scryptHash
-      |> ((hash) => hash <= target ? [nonce] : [])
+      |> ((hash) => lessThanEq(hash, target) ? [nonce] : [])
 
    const findGoldenNonce = ([f, t]) =>
       Rx.range(f, t - f, Rx.asyncScheduler)
