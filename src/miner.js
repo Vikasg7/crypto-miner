@@ -82,7 +82,7 @@ const block = (blockTemplate, wallet) => {
       |> map(prop("txid"))
       |> map(toHexLE(?, "hex"))
 
-   const merketRoot =
+   const merkelRoot =
       (isEmpty(merkleTree))
          ? cbTxId
          : merkleRoot([cbTxId, ...merkleTree])
@@ -97,7 +97,7 @@ const block = (blockTemplate, wallet) => {
 
    return [ version
           , prevHash
-          , merketRoot
+          , merkelRoot
           , ntime
           , nbits
           , nonce
