@@ -1,51 +1,12 @@
-const fetch = require("node-fetch")
 const { splitEvery, join, map, splitAt,
         concat, apply, last, append, tap,
         head, prop, isEmpty, take, length} = require("ramda")
-const { isOdd, toBytesLE, toHex, report, toHexLE, sha256d,
-        toBytes, toBase64, scryptHash, lessThanEq,
+const { isOdd, toBytesLE, toHex, report, toHexLE,
+        toBytes, scryptHash, lessThanEq, sha256d,
         hash160, compactSize, splitNumToRanges } = require("./utils")
 const Rx = require("rxjs")
 const RxOp = require("rxjs/operators")
-
-// https://en.bitcoin.it/wiki/BIP_0022
-const getBlockTemplate = async (opts) => {
-   const options = {
-      method: "POST",
-      headers: {
-         "Authorization": "Basic " + toBase64(`${opts.user}:${opts.pass}`),
-         "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-         "jsonrpc": "1.0",
-         "id": "hala",
-         "method": "getblocktemplate",
-         "params": []
-      })
-   }
-   const url = `http://${opts.address}`
-   const resp = await fetch(url, options)
-   return resp.json()
-}
-
-const submitBlock = async (opts, blockhex) => {
-   const options = {
-      method: "POST",
-      headers: {
-         "Authorization": "Basic " + toBase64(`${opts.user}:${opts.pass}`),
-         "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-         "jsonrpc": "1.0",
-         "id": "hala",
-         "method": "submitblock",
-         "params": [blockhex]
-      })
-   }
-   const url = `http://${opts.address}`
-   const resp = await fetch(url, options)
-   return resp.json()
-}
+const { getBlockTemplate, submitBlock } = require("./rpc")
 
 // coinbase transaction format - https://bitcoin.stackexchange.com/a/20724
 // coinbase transaction decoder - https://live.blockcypher.com/btc/decodetx/
@@ -84,20 +45,19 @@ const coinbaseTx = (blockTemplate, wallet) => {
       |> toHex(?, "u8")
    
    const locktime = "00000000"
-   return [
-      version,
-      inputCount,
-      prevTx,
-      prevOut,
-      scriptSigLen,
-      scriptSig,
-      sequence,
-      outCount,
-      txValue,
-      scriptLen,
-      scriptPubKey,
-      locktime
-   ]
+   return [ version
+          , inputCount
+          , prevTx
+          , prevOut
+          , scriptSigLen
+          , scriptSig
+          , sequence
+          , outCount
+          , txValue
+          , scriptLen
+          , scriptPubKey
+          , locktime
+          ]
 }
 
 const merkleLeaves = (txs) =>
@@ -131,18 +91,20 @@ const block = (blockTemplate, wallet) => {
    const nbits = toHexLE(blockTemplate.bits, "hex")
    const nonce = 0
    const txLen = compactSize(merkleTree.length + 1)
-   const txs = blockTemplate.transactions |> map(prop("data"))
-   return [
-      version,
-      prevHash,
-      merketRoot,
-      ntime,
-      nbits,
-      nonce,
-      txLen,
-      cbTx,
-      ...txs
-   ]
+   const txs = 
+      blockTemplate.transactions
+      |> map(prop("data"))
+
+   return [ version
+          , prevHash
+          , merketRoot
+          , ntime
+          , nbits
+          , nonce
+          , txLen
+          , cbTx
+          , ...txs
+          ]
 }
 
 const MAX_NONCE = 2 ** 32
@@ -154,7 +116,7 @@ const mineBlock = (blockTemplate, { wallet, threads}) => {
 
    const target = toBytes(blockTemplate.target, "hex")
    
-   const headBytes = 
+   const headBytes =
       head.join("")
       |> toBytes(?, "hex")
 
@@ -207,7 +169,5 @@ module.exports = {
    merkleLeaves,
    merkleRoot,
    block,
-   getBlockTemplate,
-   submitBlock,
    main
 }
