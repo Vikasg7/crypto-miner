@@ -71,7 +71,7 @@ const compactSize = (size) =>
 
 const splitNumToRanges = (num, divBy) => 
    concat(range(0, divBy), range(1, divBy + 1))
-   |> map(multiply(?, num / divBy | 0))
+   |> map(multiply(?, Math.ceil(num / divBy)))
    |> update(-1, num)
    |> splitEvery(divBy)
    |> apply(zip)

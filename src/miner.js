@@ -1,9 +1,9 @@
 const { splitEvery, join, map, splitAt,
         concat, apply, last, append, tap,
-        head, prop, isEmpty, take, length} = require("ramda")
+        head, prop, take, length, prepend} = require("ramda")
 const { isOdd, toBytesLE, toHex, report, toHexLE,
         toBytes, scryptHash, lessThanEq, sha256d,
-        hash160, compactSize, splitNumToRanges } = require("./utils")
+        hash160, compactSize, splitNumToRanges, toHexBE } = require("./utils")
 const Rx = require("rxjs")
 const RxOp = require("rxjs/operators")
 const { getBlockTemplate, submitBlock } = require("./rpc")
@@ -66,8 +66,9 @@ const merkleLeaves = (txs) =>
    |> map(sha256d)
 
 // https://www.javatpoint.com/blockchain-merkle-tree
+// Big Endian MerkleRoot
 const merkleRoot = (txs) =>
-   (txs.length == 1) ? head(txs) :
+   (txs.length == 1) ? head(txs) |> toHexBE(?, "hex") :
    isOdd(txs.length) ? merkleRoot(append(last(txs), txs))
                      : merkleRoot(merkleLeaves(txs))
 
@@ -82,11 +83,10 @@ const block = (blockTemplate, wallet) => {
       |> map(prop("txid"))
       |> map(toHexLE(?, "hex"))
 
-   const merkelRoot =
-      (isEmpty(merkleTree))
-         ? cbTxId
-         : merkleRoot([cbTxId, ...merkleTree])
-   
+   const merkelRoot = 
+      merkleRoot([cbTxId, ...merkleTree])
+      |> toHexLE(?, "hex")
+
    const ntime = toHexLE(blockTemplate.curtime, "u32")
    const nbits = toHexLE(blockTemplate.bits, "hex")
    const nonce = 0
