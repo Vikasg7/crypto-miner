@@ -1,3 +1,4 @@
 node_modules/
 dist/
 start.bat
+package-lock.json
