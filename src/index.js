@@ -1,16 +1,18 @@
 const yargs = require("yargs")
 const { main } = require("./miner")
 const { log } = require("console")
+const algos = require("crypto-algos")
+const { keys, prop } = require("ramda")
 
 const args =
    yargs
       .usage("npm start -- [options]")
       .options({
-         "a": {
+         "s": {
             type: "string",
             demandOption: true,
             describe: "host:port",
-            alias: "address"
+            alias: "server"
          },
          "u": {
             type: "string",
@@ -36,6 +38,14 @@ const args =
             describe: "threads",
             alias: "threads",
             default: 1
+         },
+         "a": {
+            type: "string",
+            demandOption: true,
+            describe: keys(algos).join(", "),
+            alias: "algo",
+            default: 1,
+            coerce: prop(?, algos)
          }
       })
       .help()

@@ -1,4 +1,4 @@
-const { createHash, scryptSync } = require("crypto")
+const { createHash } = require("crypto")
 const { is, range, concat, map, multiply, 
         splitEvery, apply, zip, update, not } = require("ramda")
 const base58 = require("bs58")
@@ -15,11 +15,6 @@ const sha256d = (input) =>
    input
    |> sha256
    |> sha256
-
-// https://litecoin.info/index.php/Scrypt
-const scryptHash = (bytes) =>
-   scryptSync(bytes, bytes, 32, { N: 1024, r: 1, p: 1 })
-   |> toBytesBE
 
 // https://bitcoin.stackexchange.com/a/59782
 const hash160 = (pubKey) =>
@@ -87,8 +82,9 @@ const report = (k, v) =>
    isObject(v)      ? log(`${k} : ${v[k.trim()]}`)
                     : log(`${k} : ${v}`)
 
-const lessThanEq = (a, b) => {
-   for (let i = 0; i < a.length; i++) {
+// Compares two little-endian buffers in reverse order
+const lteLE = (a, b) => {
+   for (let i = a.length - 1; i > -1; i--) {
       let x = a[i]
       let y = b[i]
       if (x == y) continue;
@@ -101,7 +97,6 @@ module.exports = {
    isOdd,
    sha256,
    sha256d,
-   scryptHash,
    toBytes,
    toHex,
    toBytesLE,
@@ -115,5 +110,5 @@ module.exports = {
    splitNumToRanges,
    isObject,
    report,
-   lessThanEq
+   lteLE
 }

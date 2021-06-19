@@ -16,7 +16,7 @@ const getBlockTemplate = async (opts) => {
          "params": []
       })
    }
-   const url = `http://${opts.address}`
+   const url = `http://${opts.server}`
    const resp = await fetch(url, options)
    return resp.json()
 }
@@ -35,7 +35,7 @@ const submitBlock = async (opts, blockhex) => {
          "params": [blockhex]
       })
    }
-   const url = `http://${opts.address}`
+   const url = `http://${opts.server}`
    const resp = await fetch(url, options)
    return resp.json()
 }

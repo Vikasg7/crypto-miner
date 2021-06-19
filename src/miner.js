@@ -1,9 +1,9 @@
 const { splitEvery, join, map, splitAt,
         concat, apply, last, append, tap,
-        head, prop, take, length, prepend} = require("ramda")
+        head, prop, take, length } = require("ramda")
 const { isOdd, toBytesLE, toHex, report, toHexLE,
-        toBytes, scryptHash, lessThanEq, sha256d,
-        hash160, compactSize, splitNumToRanges, toHexBE } = require("./utils")
+        toBytes, lteLE, sha256d, hash160, compactSize, 
+        splitNumToRanges, toHexBE } = require("./utils")
 const Rx = require("rxjs")
 const RxOp = require("rxjs/operators")
 const { getBlockTemplate, submitBlock } = require("./rpc")
@@ -45,6 +45,7 @@ const coinbaseTx = (blockTemplate, wallet) => {
       |> toHex(?, "u8")
    
    const locktime = "00000000"
+   
    return [ version
           , inputCount
           , prevTx
@@ -109,12 +110,14 @@ const block = (blockTemplate, wallet) => {
 
 const MAX_NONCE = 2 ** 32
 
-const mineBlock = (blockTemplate, { wallet, threads}) => {
+const mineBlock = (blockTemplate, { wallet, threads, algo }) => {
    const [head, [nonce, ...tail]] =
       block(blockTemplate, wallet)
       |> splitAt(5)
 
-   const target = toBytes(blockTemplate.target, "hex")
+   const target = 
+      blockTemplate.target
+      |> toBytesLE(?, "hex")
    
    const headBytes =
       head.join("")
@@ -123,8 +126,8 @@ const mineBlock = (blockTemplate, { wallet, threads}) => {
    const isGolden = (nonce) =>
       [headBytes, toBytesLE(nonce, "u32")]
       |> Buffer.concat
-      |> scryptHash
-      |> ((hash) => lessThanEq(hash, target) ? [nonce] : [])
+      |> algo
+      |> ((hash) => lteLE(hash, target) ? [nonce] : [])
 
    const findGoldenNonce = ([f, t]) =>
       Rx.range(f, t - f, Rx.asyncScheduler)
