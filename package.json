@@ -2,10 +2,11 @@
   "name": "script-miner",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
-    "tests": "babel-node -- tests",
-    "start": "babel-node -- src/index.js",
+    "start": "node dist/index.js",
+    "build": "babel src --out-dir dist",
+    "build-watch": "babel src --out-dir dist --watch",
     "repl": "babel-node"
   },
   "keywords": [],
@@ -19,6 +20,7 @@
     "@babel/plugin-proposal-pipeline-operator": "^7.12.13",
     "@babel/plugin-transform-runtime": "^7.14.3",
     "@babel/preset-env": "^7.14.4",
+    "@babel/register": "^7.14.5",
     "@babel/runtime": "^7.14.0"
   },
   "dependencies": {
@@ -27,6 +29,7 @@
     "node-fetch": "^2.6.1",
     "ramda": "^0.27.1",
     "rxjs": "^7.1.0",
+    "thread-call": "github:Vikasg7/thread-call",
     "yargs": "^17.0.1"
   }
 }

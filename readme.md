@@ -1,6 +1,12 @@
 # crypto-miner  
 A getblocktemplate based crypto miner in Nodejs written in functional style for mining crypto currency.  
 
+# Installation
+```
+git clone https://github.com/Vikasg7/crypto-miner.git
+npm run build
+```
+
 # Usage
 ```
 npm start -- [options]

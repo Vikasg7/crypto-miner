@@ -7,6 +7,7 @@ const { isOdd, toBytesLE, toHex, report, toHexLE,
 const Rx = require("rxjs")
 const RxOp = require("rxjs/operators")
 const { getBlockTemplate, submitBlock } = require("./rpc")
+const threadCall = require("thread-call")
 
 // coinbase transaction format - https://bitcoin.stackexchange.com/a/20724
 // coinbase transaction decoder - https://live.blockcypher.com/btc/decodetx/
@@ -110,28 +111,19 @@ const block = (blockTemplate, wallet) => {
 
 const MAX_NONCE = 2 ** 32
 
-const mineBlock = (blockTemplate, { wallet, threads, algo }) => {
+const mineBlock = (blockTemplate, args) => {
+   const { wallet, threads, algo } = args
+
    const [head, [nonce, ...tail]] =
       block(blockTemplate, wallet)
       |> splitAt(5)
 
    const target = 
       blockTemplate.target
-      |> toBytesLE(?, "hex")
+      |> toHexLE(?, "hex")
    
-   const headBytes =
-      head.join("")
-      |> toBytes(?, "hex")
-
-   const isGolden = (nonce) =>
-      [headBytes, toBytesLE(nonce, "u32")]
-      |> Buffer.concat
-      |> algo
-      |> ((hash) => lteLE(hash, target) ? [nonce] : [])
-
-   const findGoldenNonce = ([f, t]) =>
-      Rx.range(f, t - f, Rx.asyncScheduler)
-      |> RxOp.mergeMap(isGolden)
+   const findGoldenNonce = (nonceRange) =>
+      threadCall("./find-nonce", head, target, algo, nonceRange)
 
    const blockHex = (nonce) =>
       toHexLE(nonce, "u32")
