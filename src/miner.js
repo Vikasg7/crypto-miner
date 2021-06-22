@@ -1,8 +1,8 @@
 const { splitEvery, join, map, splitAt,
-        concat, apply, last, append, tap,
+        concat, apply, last, append,
         head, prop, take, length } = require("ramda")
 const { isOdd, toBytesLE, toHex, report, toHexLE,
-        toBytes, lteLE, sha256d, hash160, compactSize, 
+        toBytes, sha256d, hash160, compactSize, 
         splitNumToRanges, toHexBE } = require("./utils")
 const Rx = require("rxjs")
 const RxOp = require("rxjs/operators")
