@@ -43,7 +43,7 @@ const args =
             demandOption: true,
             describe: Object.keys(algos).join(", "),
             alias: "algo",
-            default: 1
+            default: "scrypt"
          }
       })
       .help()
