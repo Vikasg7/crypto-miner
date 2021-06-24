@@ -1,6 +1,7 @@
 const yargs = require("yargs")
 const { main } = require("./miner")
 const { log } = require("console")
+const algos = require("crypto-algos")
 
 const args =
    yargs
@@ -40,9 +41,9 @@ const args =
          "a": {
             type: "string",
             demandOption: true,
-            describe: "Check crypto-algos repo",
+            describe: Object.keys(algos).join(", "),
             alias: "algo",
-            default: "scrypt"
+            default: 1
          }
       })
       .help()
