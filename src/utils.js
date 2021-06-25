@@ -3,6 +3,8 @@ const { is, range, concat, map, multiply,
         splitEvery, apply, zip, update, not } = require("ramda")
 const base58 = require("bs58")
 const { log } = require("console")
+const Rx = require("rxjs")
+const RxOp = require("rxjs/operators")
 
 const isOdd = (num) => (num % 2) === 1
 
@@ -93,6 +95,14 @@ const lteLE = (a, b) => {
    return true
 }
 
+// Mirrors an Observable of values returned
+// from a fn called every n seconds repeatedly
+const repeatEvery = (n, fn, ...args) =>
+   Rx.of(null)
+   |> RxOp.delay(n * 1000)
+   |> RxOp.concatMap(_ => fn(...args))
+   |> RxOp.repeat()
+
 module.exports = {
    isOdd,
    sha256,
@@ -110,5 +120,6 @@ module.exports = {
    splitNumToRanges,
    isObject,
    report,
-   lteLE
+   lteLE,
+   repeatEvery
 }

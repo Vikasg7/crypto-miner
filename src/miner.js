@@ -3,10 +3,10 @@ const { splitEvery, join, map, splitAt,
         head, prop, take, length } = require("ramda")
 const { isOdd, toBytesLE, toHex, report, toHexLE,
         toBytes, sha256d, hash160, compactSize, 
-        splitNumToRanges, toHexBE } = require("./utils")
+        splitNumToRanges, toHexBE, repeatEvery } = require("./utils")
 const Rx = require("rxjs")
 const RxOp = require("rxjs/operators")
-const { getBlockTemplate, submitBlock } = require("./rpc")
+const RPC = require("./rpc")
 const threadCall = require("thread-call")
 
 // coinbase transaction format - https://bitcoin.stackexchange.com/a/20724
@@ -145,10 +145,7 @@ const compareResult = (a, b) =>
    txnCount(a) == txnCount(b)
 
 const blockTemplates = (args) =>
-   Rx.of(args)
-   |> RxOp.delay(1 * 1000)
-   |> RxOp.concatMap(getBlockTemplate)
-   |> RxOp.repeat()
+   repeatEvery(1, RPC.getBlockTemplate, args)
    |> RxOp.distinctUntilKeyChanged("result", compareResult)
    |> RxOp.pluck("result")
 
@@ -156,7 +153,7 @@ const main = (args) =>
    blockTemplates(args)
    |> RxOp.tap(report("height", ?))
    |> RxOp.switchMap(mineBlock(?, args))
-   |> RxOp.mergeMap(submitBlock(args, ?))
+   |> RxOp.mergeMap(RPC.submitBlock(args, ?))
    |> RxOp.tap(report(["result", "error "], ?))
 
 module.exports = {
